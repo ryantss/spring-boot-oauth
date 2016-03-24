@@ -100,49 +100,32 @@ public class SocialApplication extends WebSecurityConfigurerAdapter {
 		CompositeFilter compositeFilter = new CompositeFilter();
 		List<Filter> filters = new ArrayList<>();
 
-		//Facebook OAuth
-		OAuth2ClientAuthenticationProcessingFilter facebookFilter = new OAuth2ClientAuthenticationProcessingFilter("/login/facebook");
-		OAuth2RestTemplate facebookTemplate = new OAuth2RestTemplate(facebook(), oAuth2ClientContext);
-		facebookFilter.setRestTemplate(facebookTemplate);
-		facebookFilter.setTokenServices(new UserInfoTokenServices(facebookResource().getUserInfoUri(), facebook().getClientId()));
-		filters.add(facebookFilter);
-
-		//Github OAuth
-		OAuth2ClientAuthenticationProcessingFilter githubFilter = new OAuth2ClientAuthenticationProcessingFilter("/login/github");
-		OAuth2RestTemplate githubTemplate = new OAuth2RestTemplate(github(), oAuth2ClientContext);
-		githubFilter.setRestTemplate(githubTemplate);
-		githubFilter.setTokenServices(new UserInfoTokenServices(githubResource().getUserInfoUri(), github().getClientId()));
-		filters.add(githubFilter);
+		filters.add(ssoFilter(facebook(), "/login/facebook"));
+		filters.add(ssoFilter(github(), "/login/github"));
 
 		compositeFilter.setFilters(filters);
 		return compositeFilter;
 	}
 
-	// ---- FACEBOOK
-	@Bean
-	@ConfigurationProperties("facebook.client")
-	OAuth2ProtectedResourceDetails facebook(){
-		return new AuthorizationCodeResourceDetails();
+	private Filter ssoFilter(ClientResources client, String path){
+		OAuth2ClientAuthenticationProcessingFilter filter = new OAuth2ClientAuthenticationProcessingFilter(path);
+		OAuth2RestTemplate oauth2RestTemplate = new OAuth2RestTemplate(client.getClient(), oAuth2ClientContext);
+		filter.setRestTemplate(oauth2RestTemplate);
+		filter.setTokenServices(new UserInfoTokenServices(client.getResource().getUserInfoUri(), client.getClient().getClientId()));
+
+		return filter;
 	}
 
 	@Bean
-	@ConfigurationProperties("facebook.resource")
-	ResourceServerProperties facebookResource() {
-		return new ResourceServerProperties();
-	}
-
-
-	// ---- GITHUB
-	@Bean
-	@ConfigurationProperties("github.client")
-	OAuth2ProtectedResourceDetails github() {
-		return new AuthorizationCodeResourceDetails();
+	@ConfigurationProperties("facebook")
+	ClientResources facebook() {
+		return new ClientResources();
 	}
 
 	@Bean
-	@ConfigurationProperties("github.resource")
-	ResourceServerProperties githubResource() {
-		return new ResourceServerProperties();
+	@ConfigurationProperties("github")
+	ClientResources github() {
+		return new ClientResources();
 	}
 
 	@Bean
@@ -155,5 +138,19 @@ public class SocialApplication extends WebSecurityConfigurerAdapter {
 
 	public static void main(String[] args) {
 		SpringApplication.run(SocialApplication.class, args);
+	}
+
+
+	class ClientResources {
+		private OAuth2ProtectedResourceDetails client = new AuthorizationCodeResourceDetails();
+		private ResourceServerProperties resource = new ResourceServerProperties();
+
+		public OAuth2ProtectedResourceDetails getClient() {
+			return client;
+		}
+
+		public ResourceServerProperties getResource() {
+			return resource;
+		}
 	}
 }
