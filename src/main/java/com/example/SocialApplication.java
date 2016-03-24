@@ -4,6 +4,8 @@ package com.example;
 import java.io.IOException;
 import java.security.Principal;
 
+import java.util.ArrayList;
+import java.util.List;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -35,6 +37,7 @@ import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.filter.CompositeFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.WebUtils;
 
@@ -94,13 +97,28 @@ public class SocialApplication extends WebSecurityConfigurerAdapter {
 	}
 
 	private Filter ssoFilter() {
+		CompositeFilter compositeFilter = new CompositeFilter();
+		List<Filter> filters = new ArrayList<>();
+
+		//Facebook OAuth
 		OAuth2ClientAuthenticationProcessingFilter facebookFilter = new OAuth2ClientAuthenticationProcessingFilter("/login/facebook");
 		OAuth2RestTemplate facebookTemplate = new OAuth2RestTemplate(facebook(), oAuth2ClientContext);
 		facebookFilter.setRestTemplate(facebookTemplate);
 		facebookFilter.setTokenServices(new UserInfoTokenServices(facebookResource().getUserInfoUri(), facebook().getClientId()));
-		return facebookFilter;
+		filters.add(facebookFilter);
+
+		//Github OAuth
+		OAuth2ClientAuthenticationProcessingFilter githubFilter = new OAuth2ClientAuthenticationProcessingFilter("/login/github");
+		OAuth2RestTemplate githubTemplate = new OAuth2RestTemplate(github(), oAuth2ClientContext);
+		githubFilter.setRestTemplate(githubTemplate);
+		githubFilter.setTokenServices(new UserInfoTokenServices(githubResource().getUserInfoUri(), github().getClientId()));
+		filters.add(githubFilter);
+
+		compositeFilter.setFilters(filters);
+		return compositeFilter;
 	}
 
+	// ---- FACEBOOK
 	@Bean
 	@ConfigurationProperties("facebook.client")
 	OAuth2ProtectedResourceDetails facebook(){
@@ -110,6 +128,20 @@ public class SocialApplication extends WebSecurityConfigurerAdapter {
 	@Bean
 	@ConfigurationProperties("facebook.resource")
 	ResourceServerProperties facebookResource() {
+		return new ResourceServerProperties();
+	}
+
+
+	// ---- GITHUB
+	@Bean
+	@ConfigurationProperties("github.client")
+	OAuth2ProtectedResourceDetails github() {
+		return new AuthorizationCodeResourceDetails();
+	}
+
+	@Bean
+	@ConfigurationProperties("github.resource")
+	ResourceServerProperties githubResource() {
 		return new ResourceServerProperties();
 	}
 
